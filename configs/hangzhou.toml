@@ -1,0 +1,31 @@
+[search]
+place_name = "Hangzhou, Zhejiang, China"
+center_lon = 120.1551
+center_lat = 30.2741
+drive_time_minutes = 60
+analysis_crs = "EPSG:32651"
+graph_fetch_radius_m = 90000
+isochrone_node_buffer_m = 1200
+
+[filters]
+min_area_m2 = 4047.0
+flat_slope_degrees = 5.0
+max_road_distance_m = 500.0
+allowed_landcover_classes = [30, 60]
+min_allowed_landcover_fraction = 0.6
+nearby_slope_buffer_m = 500.0
+target_area_m2 = 20000.0
+
+[weights]
+area = 0.25
+flatness = 0.25
+road_access = 0.2
+vegetation = 0.2
+nearby_slope = 0.1
+
+[paths]
+# Optional manual overrides:
+# dem_path = "/absolute/path/to/dem.tif"
+# landcover_path = "/absolute/path/to/worldcover.tif"
+cache_dir = "data/cache"
+output_dir = "outputs"
