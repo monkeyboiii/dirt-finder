@@ -8,6 +8,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import LineString, box
 
 from dirt_finder.analysis import (
+    _raster_values_for_geometry,
     analyze_sites,
     calculate_slope,
     landcover_allowed_fraction,
@@ -77,6 +78,15 @@ def test_landcover_allowed_fraction(tmp_path: Path) -> None:
     fraction = landcover_allowed_fraction(box(0, 0, 40, 40), CRS, landcover, [30, 60])
 
     assert fraction == pytest.approx(0.5)
+
+
+def test_raster_values_for_geometry_uses_geometry_window() -> None:
+    raster = np.arange(100, dtype="float32").reshape((10, 10))
+    transform = from_origin(0, 10, 1, 1)
+
+    values = _raster_values_for_geometry(raster, transform, box(2, 4, 5, 7))
+
+    assert sorted(values.tolist()) == [32.0, 33.0, 34.0, 42.0, 43.0, 44.0, 52.0, 53.0, 54.0]
 
 
 def test_analyze_sites_end_to_end_with_manual_inputs(tmp_path: Path) -> None:

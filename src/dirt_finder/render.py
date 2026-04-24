@@ -4,16 +4,23 @@ from pathlib import Path
 
 import folium
 import geopandas as gpd
+from rich.console import Console
 
 from dirt_finder.config import AppConfig
+
+
+console = Console()
 
 
 def render_map(config: AppConfig) -> Path:
     config.resolved_output_dir().mkdir(parents=True, exist_ok=True)
     center = [config.search.center_lat, config.search.center_lon]
-    fmap = folium.Map(location=center, zoom_start=10, tiles="OpenStreetMap", control_scale=True)
+    console.print("[cyan]Rendering map[/cyan]")
+    fmap = folium.Map(location=center, zoom_start=10, tiles=None, control_scale=True)
+    folium.TileLayer("CartoDB positron", name="CartoDB Positron", control=True).add_to(fmap)
 
     if config.search_area_file().exists():
+        console.print(f"[cyan]Adding search area[/cyan] {config.search_area_file()}")
         boundary = gpd.read_file(config.search_area_file()).to_crs("EPSG:4326")
         folium.GeoJson(
             boundary,
@@ -28,8 +35,10 @@ def render_map(config: AppConfig) -> Path:
         fmap.fit_bounds([[miny, minx], [maxy, maxx]])
 
     if config.roads_file().exists():
+        console.print(f"[cyan]Adding roads[/cyan] {config.roads_file()}")
         roads = gpd.read_file(config.roads_file()).to_crs("EPSG:4326")
         if not roads.empty:
+            console.print(f"[dim]Simplifying {len(roads)} road features[/dim]")
             roads = roads[["geometry"]].copy()
             roads["geometry"] = roads.geometry.simplify(0.0001, preserve_topology=True)
             folium.GeoJson(
@@ -43,8 +52,10 @@ def render_map(config: AppConfig) -> Path:
             ).add_to(fmap)
 
     if config.candidates_geojson_file().exists():
+        console.print(f"[cyan]Adding candidates[/cyan] {config.candidates_geojson_file()}")
         candidates = gpd.read_file(config.candidates_geojson_file()).to_crs("EPSG:4326")
         if not candidates.empty:
+            console.print(f"[dim]Rendering {len(candidates)} candidate features[/dim]")
             fields = [
                 "rank",
                 "score",
@@ -88,7 +99,9 @@ def render_map(config: AppConfig) -> Path:
 
     folium.LayerControl(collapsed=False).add_to(fmap)
     output = config.map_file()
+    console.print(f"[cyan]Saving map[/cyan] {output}")
     fmap.save(output)
+    console.print(f"[green]Map written[/green] {output}")
     return output
 
 

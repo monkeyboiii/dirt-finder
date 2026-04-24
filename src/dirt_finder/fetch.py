@@ -11,7 +11,7 @@ from typing import Iterable
 import geopandas as gpd
 import networkx as nx
 from rich.console import Console
-from shapely.geometry import box
+from shapely.geometry import Point, box
 from shapely.ops import unary_union
 
 from dirt_finder.config import AppConfig
@@ -100,10 +100,12 @@ def ensure_osm_inputs(config: AppConfig) -> None:
 
 
 def build_drive_time_isochrone(config: AppConfig, graph: object, ox: object) -> gpd.GeoDataFrame:
-    center_node = ox.distance.nearest_nodes(
-        graph,
+    nodes = ox.graph_to_gdfs(graph, edges=False)
+    center_node = _nearest_graph_node(
+        nodes,
         config.search.center_lon,
         config.search.center_lat,
+        config.search.analysis_crs,
     )
     cutoff_seconds = config.search.drive_time_minutes * 60
     travel_times = nx.single_source_dijkstra_path_length(
@@ -115,7 +117,6 @@ def build_drive_time_isochrone(config: AppConfig, graph: object, ox: object) -> 
     if not travel_times:
         raise RuntimeError("No reachable OSM nodes found for the configured drive-time area.")
 
-    nodes = ox.graph_to_gdfs(graph, edges=False)
     reachable = nodes.loc[list(travel_times.keys())]
     reachable_proj = reachable.to_crs(config.search.analysis_crs)
     buffered = reachable_proj.geometry.buffer(config.search.isochrone_node_buffer_m)
@@ -124,6 +125,21 @@ def build_drive_time_isochrone(config: AppConfig, graph: object, ox: object) -> 
         raise RuntimeError("Reachable OSM nodes produced an empty isochrone polygon.")
 
     return gpd.GeoDataFrame(geometry=[polygon], crs=config.search.analysis_crs).to_crs("EPSG:4326")
+
+
+def _nearest_graph_node(
+    nodes: gpd.GeoDataFrame,
+    center_lon: float,
+    center_lat: float,
+    analysis_crs: str,
+) -> object:
+    if nodes.empty:
+        raise RuntimeError("Cannot build isochrone from an empty OSM graph.")
+
+    center = gpd.GeoSeries([Point(center_lon, center_lat)], crs="EPSG:4326").to_crs(analysis_crs).iloc[0]
+    nodes_proj = nodes.to_crs(analysis_crs)
+    distances = nodes_proj.geometry.distance(center)
+    return distances.idxmin()
 
 
 def ensure_dem(config: AppConfig) -> None:
